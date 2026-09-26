@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="description" content="StorageLearn：从物理介质、文件系统、数据库、缓存、搜索、消息、数据湖到分布式存储的完整知识体系。"/>
+<title>StorageLearn · 完整存储体系深度解析</title>
+<link rel="stylesheet" href="./styles.css"/>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<button class="menu-btn" id="menuBtn">☰</button>
+<aside class="sidebar" id="sidebar">
+  <div class="brand"><div class="logo">SL</div><div><b>StorageLearn</b><small>Storage Systems Deep Dive</small></div></div>
+  <nav>
+    <a href="#hero">总览</a>
+    <a href="#landscape">01 · 存储世界全景</a>
+    <a href="#media">02 · 物理介质</a>
+    <a href="#device">03 · 设备与协议</a>
+    <a href="#models">04 · Block / File / Object</a>
+    <a href="#filesystem">05 · 文件系统</a>
+    <a href="#data-software">06 · 数据软件全家桶</a>
+    <a href="#cloud">07 · 云 / 容器 / 备份</a>
+    <a href="#line1">主线 A · 落盘链路</a>
+    <a href="#line2">主线 B · MySQL</a>
+    <a href="#line3">主线 C · Redis</a>
+    <a href="#line4">主线 D · Kafka</a>
+    <a href="#line5">主线 E · 分布式</a>
+    <a href="#journey">端到端真实链路</a>
+    <a href="#matrix">选型矩阵</a>
+    <a href="#failures">故障推演</a>
+    <a href="#quiz">自测</a>
+  </nav>
+  <div class="side-tip">学习顺序：先理解“为什么存在”，再理解“怎么实现”，最后理解“会在哪里失败”。</div>
+</aside>
+
+<main>
+<section class="hero" id="hero">
+  <div class="eyebrow">STORAGE SYSTEMS · COMPLETE MAP</div>
+  <h1>从一个比特到<br><span>分布式一致性</span></h1>
+  <p class="lead">完整理解现代存储：物理介质 → SSD/NVMe → Block/File/Object → 文件系统 → 数据库/缓存/搜索/消息 → 数据仓库/数据湖 → 分布式复制与一致性。目标不是记产品，而是建立一套可以解释“为什么系统要这样设计”的统一模型。</p>
+  <div class="stats"><div><b>7</b><span>基础层级</span></div><div><b>18+</b><span>软件类别</span></div><div><b>5</b><span>深度主线</span></div><div><b>1</b><span>统一心智模型</span></div></div>
+</section>
+
+<section id="landscape">
+  <header class="section-head"><span>01</span><div><h2>存储世界全景：数据库只是中间一层</h2><p>先把所有概念放到正确层级，避免把“介质、协议、文件系统、数据库”混在一起。</p></div></header>
+  <div class="layer-stack">
+    <div><b>L7 应用 / AI / BI</b><span>App、Web、ERP、RAG、数据分析</span></div>
+    <div><b>L6 数据软件</b><span>MySQL、PostgreSQL、Redis、MongoDB、Elasticsearch、Kafka、ClickHouse、Vector DB</span></div>
+    <div><b>L5 数据平台</b><span>Warehouse、Lake、Lakehouse、HDFS、Iceberg、Parquet</span></div>
+    <div><b>L4 存储服务</b><span>Block / File / Object</span></div>
+    <div><b>L3 文件系统</b><span>APFS、NTFS、ext4、XFS、ZFS、Btrfs</span></div>
+    <div><b>L2 设备 / 协议</b><span>SSD、HDD、SATA、SAS、NVMe、PCIe</span></div>
+    <div><b>L1 物理介质</b><span>SRAM、DRAM、NAND、NOR、磁盘、磁带、光学介质</span></div>
+  </div>
+  <div class="principle"><b>核心规律：</b>上一层几乎总是在弥补下一层“不好用”的地方。NAND 难直接管理 → SSD 控制器；Block 难直接组织 → 文件系统；文件难查询和事务化 → 数据库；数据库全文搜索弱 → Elasticsearch；单机容量有限 → 分布式存储。</div>
+</section>
+
+<section id="media">
+<header class="section-head"><span>02</span><div><h2>物理存储介质：数据最终落在哪里</h2><p>真正存储比特的是电荷、晶体管状态、磁性状态或光学状态。</p></div></header>
+<div class="table-wrap"><table><thead><tr><th>介质</th><th>典型产品</th><th>是否掉电丢失</th><th>核心用途</th><th>主要不足</th></tr></thead><tbody>
+<tr><td>SRAM</td><td>CPU L1/L2/L3 Cache</td><td>是</td><td>极低延迟 CPU 缓存</td><td>贵、容量小</td></tr>
+<tr><td>DRAM</td><td>DDR4 / DDR5</td><td>是</td><td>运行内存、数据库 Buffer Pool、Page Cache</td><td>掉电丢失、成本高于磁盘</td></tr>
+<tr><td>NAND Flash</td><td>SSD、U盘、手机 UFS</td><td>否</td><td>主流永久高速存储</td><td>写入寿命、GC、写放大</td></tr>
+<tr><td>NOR Flash</td><td>固件、MCU、Boot ROM</td><td>否</td><td>小容量可直接执行代码</td><td>容量成本高</td></tr>
+<tr><td>HDD 磁介质</td><td>机械硬盘、NAS</td><td>否</td><td>低成本海量容量</td><td>机械寻道、随机 I/O 慢</td></tr>
+<tr><td>磁带</td><td>LTO</td><td>否</td><td>离线归档、长期备份</td><td>访问慢、操作复杂</td></tr>
+<tr><td>光学介质</td><td>CD/DVD/Blu-ray</td><td>否</td><td>离线分发/归档</td><td>容量和速度有限</td></tr>
+<tr><td>新型 NVM</td><td>MRAM / PCM / ReRAM</td><td>否</td><td>特定工业/研究场景</td><td>成本、生态、规模化</td></tr>
+</tbody></table></div>
+<div class="cards three">
+<article><h3>为什么有多级存储</h3><p>越靠近 CPU 越快、越贵、容量越小；越远越便宜、容量越大、延迟越高。</p><pre>CPU Registers
+↓
+SRAM Cache
+↓
+DRAM
+↓
+NVMe SSD
+↓
+HDD
+↓
+Tape</pre></article>
+<article><h3>NAND 的关键限制</h3><p>通常按 Page 写、按 Block 擦除，无法像 DRAM 那样任意原地覆盖，因此需要 FTL、GC、Wear Leveling 与 TRIM。</p></article>
+<article><h3>TLC / QLC</h3><p>SLC/MLC/TLC/QLC 每 Cell 存储位数依次增加。容量成本下降，但写性能、耐久性和管理复杂度也发生变化。</p></article>
+</div>
+</section>
+
+<section id="device">
+<header class="section-head"><span>03</span><div><h2>设备与协议：NAND ≠ SSD ≠ NVMe ≠ PCIe</h2><p>这四个词属于完全不同层级。</p></div></header>
+<div class="concept-chain"><div><b>NAND</b><span>物理介质</span></div><b>→</b><div><b>SSD</b><span>设备</span></div><b>→</b><div><b>NVMe</b><span>存储协议</span></div><b>→</b><div><b>PCIe</b><span>高速总线</span></div></div>
+<div class="cards two">
+<article><h3>SATA / AHCI</h3><p>源于机械硬盘时代，协议和队列模型更适合传统磁盘。SATA SSD 常见顺序吞吐约 500MB/s 级。</p><p class="weak">不足：SSD 已经快到协议本身开始成为瓶颈。</p></article>
+<article><h3>NVMe / PCIe</h3><p>为低延迟 Flash 设计，支持大量并行队列，让多核 CPU 与 SSD 内部并行 NAND 通道更充分协作。</p><p class="weak">不足：成本、发热、PCIe Lane 与控制器资源要求更高。</p></article>
+</div>
+<div class="cards two">
+<article><h3>FTL</h3><p>把操作系统看到的 LBA 映射到真实 NAND Page。</p><pre>LBA 1000
+ ↓
+FTL Mapping
+ ↓
+Physical Page 837292</pre><p>同时负责磨损均衡、垃圾回收、坏块管理。</p></article>
+<article><h3>为什么 SSD 会“掉速”</h3><p>SLC Cache 耗尽、GC、写放大、温度降频、可用空闲块减少都可能引发持续写性能下降。</p></article>
+</div>
+</section>
+
+<section id="models">
+<header class="section-head"><span>04</span><div><h2>Block / File / Object：现代云存储三大模型</h2><p>这是理解 EBS、NAS、S3、Ceph、Kubernetes Volume 的关键。</p></div></header>
+<div class="cards three">
+<article><h3>Block Storage</h3><p>向上提供“像硬盘一样”的逻辑块设备。</p><p><b>适合：</b>数据库、虚拟机、操作系统盘、K8s PV。</p><p><b>产品：</b>EBS、SAN、Ceph RBD。</p><p class="weak"><b>不足：</b>只认识 Block，不认识目录和文件。</p></article>
+<article><h3>File Storage</h3><p>向上直接暴露文件和目录语义，多客户端共享。</p><p><b>适合：</b>企业共享盘、NAS、开发目录、媒体协作。</p><p><b>产品：</b>NFS、SMB、EFS、TrueNAS。</p><p class="weak"><b>不足：</b>大规模元数据和横向扩展更复杂。</p></article>
+<article><h3>Object Storage</h3><p>以 Bucket + Object Key 管理对象，通过 HTTP/API 访问。</p><p><b>适合：</b>图片、视频、备份、日志、AI 数据集、数据湖。</p><p><b>产品：</b>S3、R2、OSS、COS、MinIO。</p><p class="weak"><b>不足：</b>不擅长文件中间随机 4KB 修改和 POSIX 语义。</p></article>
+</div>
+<div class="principle"><b>工程常见组合：</b>MySQL 存元数据与业务关系，S3 存大文件；数据库里保存 object_key / URL，而不是把大视频直接塞进 BLOB。</div>
+</section>
+
+<section id="filesystem">
+<header class="section-head"><span>05</span><div><h2>文件系统：把 Block 变成“文件世界”</h2><p>解决目录、权限、空间分配、一致性、元数据与快照。</p></div></header>
+<div class="table-wrap"><table><thead><tr><th>文件系统</th><th>常见平台</th><th>特点</th></tr></thead><tbody>
+<tr><td>APFS</td><td>macOS / iOS</td><td>Copy-on-Write、Snapshot、加密</td></tr>
+<tr><td>NTFS</td><td>Windows</td><td>权限、Journal、广泛兼容</td></tr>
+<tr><td>ext4</td><td>Linux</td><td>成熟稳定、Journal</td></tr>
+<tr><td>XFS</td><td>Linux Server</td><td>大文件与高吞吐</td></tr>
+<tr><td>ZFS</td><td>NAS / Server</td><td>COW、校验、Snapshot、存储池</td></tr>
+<tr><td>Btrfs</td><td>Linux</td><td>COW、Snapshot、Checksum</td></tr>
+<tr><td>exFAT</td><td>移动介质</td><td>跨平台简单交换</td></tr>
+</tbody></table></div>
+<div class="cards three">
+<article><h3>inode</h3><p>Linux 文件名通常先映射到 inode，再由 inode 记录权限、大小、时间与数据 Block 位置。</p></article>
+<article><h3>Journal</h3><p>先写日志描述元数据更新，再真正修改文件系统。断电后可以 Replay，避免目录与 inode 等处于半完成状态。</p></article>
+<article><h3>Copy-on-Write</h3><p>修改时写新 Block，再切换元数据指针。方便 Snapshot、快速复制和崩溃一致性。</p></article>
+</div>
+</section>
+
+<section id="data-software">
+<header class="section-head"><span>06</span><div><h2>数据软件全家桶：每一类到底解决什么问题</h2><p>数据库不是一种东西，缓存、搜索、消息、OLAP、数据湖和向量检索都属于不同问题空间。</p></div></header>
+<div class="catalog">
+<article><h3>关系型数据库 · SQL</h3><p><b>产品：</b>MySQL、PostgreSQL、Oracle、SQL Server、SQLite。</p><p><b>解决：</b>结构化数据、关系、事务、约束、索引。</p><p><b>场景：</b>订单、支付、账务、用户、ERP、CRM。</p><p class="weak"><b>不足：</b>超大规模横向扩展、全文搜索、自由 Schema 不是其最自然优势。</p></article>
+<article><h3>Key-Value</h3><p><b>产品：</b>Redis、DynamoDB、RocksDB、LevelDB、etcd。</p><p><b>解决：</b>按 Key 快速读写。</p><p><b>场景：</b>缓存、Session、计数器、排行榜、配置、分布式协调。</p><p class="weak"><b>不足：</b>复杂关系查询弱。</p></article>
+<article><h3>文档数据库</h3><p><b>产品：</b>MongoDB、CouchDB、Firestore。</p><p><b>解决：</b>JSON/嵌套对象与灵活 Schema。</p><p><b>场景：</b>内容系统、商品属性、用户 Profile、快速迭代。</p><p class="weak"><b>不足：</b>复杂 JOIN、强关系模型常不如 SQL 自然。</p></article>
+<article><h3>宽列数据库</h3><p><b>产品：</b>Cassandra、HBase、ScyllaDB、Bigtable。</p><p><b>解决：</b>PB 级水平扩展、大吞吐分布式写入。</p><p><b>场景：</b>IoT、日志、用户行为、广告。</p><p class="weak"><b>不足：</b>建模往往围绕查询设计，通用关系查询能力弱。</p></article>
+<article><h3>图数据库</h3><p><b>产品：</b>Neo4j、Neptune、JanusGraph。</p><p><b>解决：</b>关系网络遍历。</p><p><b>场景：</b>社交、知识图谱、推荐、反欺诈。</p><p class="weak"><b>不足：</b>通用 OLTP 与大规模简单聚合未必合适。</p></article>
+<article><h3>时序数据库</h3><p><b>产品：</b>InfluxDB、TimescaleDB、Prometheus、VictoriaMetrics。</p><p><b>解决：</b>timestamp + value 的高频写入、窗口聚合与保留策略。</p><p><b>场景：</b>监控、IoT、行情、工业指标。</p><p class="weak"><b>不足：</b>复杂关系与普通业务事务不是主战场。</p></article>
+<article><h3>搜索引擎</h3><p><b>产品：</b>Elasticsearch、OpenSearch、Solr。</p><p><b>解决：</b>倒排索引、全文检索、相关性排序、日志搜索。</p><p><b>场景：</b>商品搜索、站内搜索、Observability、安全日志。</p><p class="weak"><b>不足：</b>通常不作为核心账本 Source of Truth。</p></article>
+<article><h3>缓存</h3><p><b>产品：</b>Redis、Memcached。</p><p><b>解决：</b>把热点数据搬到更快层级，减少数据库压力。</p><p><b>场景：</b>热点查询、Session、限流、验证码、锁。</p><p class="weak"><b>不足：</b>一致性、穿透、击穿、雪崩、内存成本。</p></article>
+<article><h3>消息 / 日志系统</h3><p><b>产品：</b>Kafka、Pulsar、RabbitMQ、RocketMQ。</p><p><b>解决：</b>系统解耦、异步处理、事件流。</p><p><b>场景：</b>订单事件、CDC、日志管道、流处理。</p><p class="weak"><b>不足：</b>重复消费、乱序、积压、语义和运维复杂。</p></article>
+<article><h3>数据仓库 / OLAP</h3><p><b>产品：</b>ClickHouse、Snowflake、BigQuery、Redshift、Doris、StarRocks。</p><p><b>解决：</b>亿级/百亿级历史数据聚合分析。</p><p><b>场景：</b>BI、报表、用户行为、指标平台。</p><p class="weak"><b>不足：</b>高频单行事务更新不如 OLTP。</p></article>
+<article><h3>数据湖 / Lakehouse</h3><p><b>底层：</b>S3 / HDFS；<b>格式：</b>Parquet / ORC；<b>表格式：</b>Iceberg / Delta / Hudi。</p><p><b>解决：</b>海量原始与结构化数据统一保存、分析和 AI 使用。</p><p class="weak"><b>不足：</b>治理、元数据、事务和小文件管理复杂。</p></article>
+<article><h3>向量数据库</h3><p><b>产品：</b>Milvus、Qdrant、Weaviate、Pinecone、pgvector。</p><p><b>解决：</b>Embedding 相似度检索与 ANN。</p><p><b>场景：</b>RAG、语义搜索、推荐、图片检索。</p><p class="weak"><b>不足：</b>近似结果、索引成本、Embedding 质量决定上限。</p></article>
+</div>
+<div class="principle"><b>重要：</b>大型系统不是“选一个数据库”，而是 Polyglot Persistence——不同数据使用最适合它的存储模型。</div>
+</section>
+
+<section id="cloud">
+<header class="section-head"><span>07</span><div><h2>云、容器、备份与版本：存储体系的外围能力</h2><p>真正生产系统还必须解决共享、灾备、生命周期和运行环境问题。</p></div></header>
+<div class="cards three">
+<article><h3>分布式存储</h3><p><b>Ceph</b> 可同时提供 Block(RBD)、File(CephFS)、Object(S3-compatible)。<br><b>HDFS</b> 将大文件拆成 Block 分散到集群。<br><b>MinIO</b> 聚焦对象存储。</p></article>
+<article><h3>Kubernetes Storage</h3><p>Pod 是易失的，因此持久数据通过 PVC → PV → CSI → EBS/Ceph/NFS 等后端。</p><pre>Pod
+↓
+PVC
+↓
+PV
+↓
+CSI
+↓
+Storage</pre></article>
+<article><h3>Backup</h3><p>Time Machine、Veeam、Restic、Borg、Velero 等解决误删、勒索、磁盘损坏与灾难恢复。</p><p><b>RAID ≠ Backup。</b> RAID 解决设备故障，不解决误删同步扩散。</p></article>
+</div>
+<div class="cards two">
+<article><h3>3-2-1 原则</h3><p>至少 3 份数据、2 种不同介质、1 份异地/离线。它解决的是“同一故障域一次性毁掉所有副本”的问题。</p></article>
+<article><h3>Git 也是存储系统</h3><p>Git 通过 blob / tree / commit / tag 保存内容寻址对象与版本历史，本质是一个版本化 Content-Addressable Storage。</p></article>
+</div>
+</section>
+
+<section id="line1" class="deep">
+<header class="section-head"><span>A</span><div><h2>主线 A：SSD → NVMe → 文件系统 → Page Cache</h2><p>一次 write() 到底什么时候才真正“安全”？</p></div></header>
+<div class="flow"><div>App write()</div><b>→</b><div>VFS</div><b>→</b><div>ext4/XFS</div><b>→</b><div class="hot">Page Cache</div><b>→</b><div>Block I/O</div><b>→</b><div>NVMe</div><b>→</b><div>FTL</div><b>→</b><div>NAND</div></div>
+<div class="cards two">
+<article><h3>write() 成功 ≠ 已落盘</h3><p>普通写通常先修改 Page Cache 并标记 Dirty。内核之后异步 flush；此时若突然断电，尚未刷盘的数据可能丢失。</p><pre>write()
+↓
+Dirty Page
+↓
+background flush
+↓
+SSD</pre></article>
+<article><h3>fsync 的意义</h3><p><code>fsync()</code> 要求把相关脏数据推进持久化路径。代价是延迟，因此所有数据库都在“每次都刷”与“批量刷”之间做性能/耐久性权衡。</p></article>
+</div>
+<div class="cards three">
+<article><h3>Page Cache</h3><p>把文件页缓存在 DRAM，读命中时不访问 SSD。</p></article>
+<article><h3>Journal</h3><p>解决文件系统元数据更新到一半崩溃的问题。</p></article>
+<article><h3>FTL / GC</h3><p>解决 NAND 不能随意覆盖、坏块、磨损均衡与回收问题。</p></article>
+</div>
+<div class="takeaway"><b>主线 A 五个关键词：</b>Page Cache、Dirty Page、fsync、Journal、FTL。</div>
+</section>
+
+<section id="line2" class="deep">
+<header class="section-head"><span>B</span><div><h2>主线 B：MySQL / InnoDB</h2><p>把磁盘文件变成可查询、可并发、可恢复的业务状态。</p></div></header>
+<div class="flow"><div>SQL</div><b>→</b><div>Optimizer</div><b>→</b><div>B+Tree</div><b>→</b><div class="hot">Buffer Pool</div><b>→</b><div>Redo/Undo</div><b>→</b><div>Data Page</div></div>
+<div class="cards two">
+<article><h3>B+Tree 为什么适合磁盘</h3><p>每个 Page 可保存大量 key，使树高度很低，从而把“比较次数”转化成更少的随机 Page I/O。</p><p>主键聚簇索引叶子保存完整行；二级索引通常保存主键，因此查询可能发生回表。</p></article>
+<article><h3>Buffer Pool</h3><p>热点索引页与数据页尽量驻留内存。高命中率下，大量 SELECT 根本不碰 SSD。</p></article>
+</div>
+<div class="compare">
+<div><b>Redo</b><span>崩溃恢复；先顺序写日志</span></div>
+<div><b>Undo</b><span>回滚 + MVCC 历史版本</span></div>
+<div><b>Binlog</b><span>复制、CDC、时间点恢复</span></div>
+<div><b>MVCC</b><span>提高读写并发</span></div>
+<div><b>Lock</b><span>解决写写冲突</span></div>
+</div>
+<div class="cards two">
+<article><h3>MVCC</h3><p>通过事务 ID、Read View 与 Undo 版本链，让普通一致性读看到适合自己的历史版本，从而减少读写互相阻塞。</p></article>
+<article><h3>Gap / Next-Key Lock</h3><p>在需要锁定范围的事务中，不仅锁已有记录，也可锁索引区间，防止范围内插入导致幻读。</p></article>
+</div>
+<div class="takeaway"><b>核心模式：</b>内存修改 + 顺序日志 + 后台刷数据页。顺序 WAL 换取随机数据页写入的高成本。</div>
+</section>
+
+<section id="line3" class="deep">
+<header class="section-head"><span>C</span><div><h2>主线 C：Redis</h2><p>把热点数据前移，但把一致性复杂度带进系统。</p></div></header>
+<div class="flow"><div>Request</div><b>→</b><div class="hot">Redis</div><b>→ miss</b><div>MySQL</div><b>→</b><div>回填</div></div>
+<div class="cards three">
+<article><h3>穿透</h3><p>查不存在的数据，每次都落到 DB。方案：空值缓存、Bloom Filter。</p></article>
+<article><h3>击穿</h3><p>超级热点 key 失效，大量请求同时访问 DB。方案：互斥重建、逻辑过期。</p></article>
+<article><h3>雪崩</h3><p>大量 key 同时过期或缓存集群故障。方案：随机 TTL、多级缓存、限流、熔断。</p></article>
+</div>
+<div class="cards two">
+<article><h3>分布式锁</h3><pre>SET lock:key token NX PX 30000</pre><p>token 必须唯一；释放锁要原子执行“比较 token + DEL”，常用 Lua。</p><p class="weak">仍不能自动解决网络分区、长 GC、业务执行超过 TTL、主从切换等问题。</p></article>
+<article><h3>持久化 / 高可用</h3><p><b>RDB</b>：快照、恢复快，但可能丢最近数据。<br><b>AOF</b>：记录写操作，数据损失窗口更小但写成本更高。<br><b>Sentinel</b>：故障转移。<br><b>Cluster</b>：16384 slots 做水平分片。</p></article>
+</div>
+<div class="takeaway"><b>核心业务底线：</b>金融/订单等状态不要只靠 Redis Lock；还要数据库唯一约束、幂等键、状态机、版本号等兜底。</div>
+</section>
+
+<section id="line4" class="deep">
+<header class="section-head"><span>D</span><div><h2>主线 D：Kafka</h2><p>分布式、持久化、顺序追加的事件日志。</p></div></header>
+<div class="kafka">
+<div class="producer">Producer</div>
+<div class="topic">
+<div><small>P0</small><span>0</span><span>1</span><span>2</span><span>3</span></div>
+<div><small>P1</small><span>0</span><span>1</span><span>2</span></div>
+<div><small>P2</small><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span></div>
+</div>
+<div class="consumer">Consumer Group</div>
+</div>
+<div class="cards two">
+<article><h3>Partition + Key</h3><p>Topic 分区后可横向扩展；Kafka 保证的是 Partition 内有序，不是全局有序。相同 key 常路由到同一 Partition，用来维持同一业务实体事件顺序。</p></article>
+<article><h3>Offset + Consumer Group</h3><p>Consumer 保存自己的消费进度而不是“删消息”。一个 Group 内，同一 Partition 同时只分配给一个 Consumer，因此 Partition 数量决定并行度上限。</p></article>
+</div>
+<div class="delivery">
+<div><b>At-most-once</b><span>先提交 offset，再处理；可能丢。</span></div>
+<div><b>At-least-once</b><span>先处理，再提交；可能重复。</span></div>
+<div><b>Exactly-once</b><span>依赖幂等生产者、事务与 offset 协调；外部副作用仍需幂等。</span></div>
+</div>
+<div class="takeaway"><b>Kafka 为什么快：</b>Append-only 顺序写 + Batch + Compression + Page Cache + Zero Copy。</div>
+</section>
+
+<section id="line5" class="deep">
+<header class="section-head"><span>E</span><div><h2>主线 E：Sharding / Replication / Raft / CAP</h2><p>单机时代结束后，系统开始面对容量、故障与“谁说了算”。</p></div></header>
+<div class="cards three">
+<article><h3>Sharding</h3><p>把不同 Key/范围的数据放到不同节点，解决容量和吞吐扩展。</p><p class="weak">代价：路由、迁移、跨分片查询与事务更复杂。</p></article>
+<article><h3>Replication</h3><p>复制多个副本解决节点故障。同步复制更稳但更慢；异步复制更快但可能丢最近写入。</p></article>
+<article><h3>Consensus</h3><p>当出现超时、节点故障和网络分区时，需要确定 Leader 与已提交日志。Raft 是典型协议。</p></article>
+</div>
+<div class="raft">
+<div class="node leader"><b>Leader</b><span>Log 1 · Log 2 · Log 3</span></div>
+<div class="arrow">↓ AppendEntries</div>
+<div class="followers"><div class="node">Follower A</div><div class="node">Follower B</div></div>
+<div class="majority">2 / 3 多数确认 → Commit</div>
+</div>
+<div class="cards two">
+<article><h3>一致性哈希</h3><p>普通 mod hash 在节点数量变化时会导致大量 Key 迁移。一致性哈希把节点和 Key 放到 Hash Ring，只迁移局部范围。</p></article>
+<article><h3>CAP</h3><p>关键不是日常“三选二”，而是当网络分区已经发生时：系统更偏向保持一致性（可能拒绝部分请求），还是保持可用性（允许暂时不一致）。</p></article>
+</div>
+</section>
+
+<section id="journey">
+<header class="section-head"><span>08</span><div><h2>端到端真实数据旅程：一次消费金融额度申请</h2><p>用一个业务把所有层真正串起来。</p></div></header>
+<div class="journey">
+<div><b>1 · App</b><span>用户提交额度申请</span></div>
+<div><b>2 · Redis</b><span>幂等键 / 防重复 / 短期状态</span></div>
+<div><b>3 · MySQL</b><span>写申请主表、状态机、事务</span></div>
+<div><b>4 · Redo + fsync</b><span>提交后具备崩溃恢复基础</span></div>
+<div><b>5 · Binlog / Replica</b><span>复制、CDC、备份链路</span></div>
+<div><b>6 · Kafka</b><span>发布 ApplicationCreated</span></div>
+<div><b>7 · 风控 / 通知 / 审计</b><span>独立消费者异步处理</span></div>
+<div><b>8 · Object Storage</b><span>证件/附件等大对象</span></div>
+<div><b>9 · Elasticsearch</b><span>日志与检索</span></div>
+<div><b>10 · ClickHouse / Lake</b><span>行为分析、模型训练、历史数据</span></div>
+</div>
+<div class="principle"><b>注意：</b>每一层都只负责自己最擅长的问题。MySQL 不是缓存，Redis 不是账本，Kafka 不是随机查询数据库，S3 不是 POSIX 磁盘。</div>
+</section>
+
+<section id="matrix">
+<header class="section-head"><span>09</span><div><h2>技术选型矩阵</h2><p>看到业务问题时，先判断它属于哪一类，而不是先想产品。</p></div></header>
+<div class="table-wrap"><table><thead><tr><th>技术/模型</th><th>主要解决</th><th>典型场景</th><th>关键不足</th></tr></thead><tbody>
+<tr><td>DRAM</td><td>低延迟临时状态</td><td>运行内存、缓存</td><td>掉电丢失</td></tr>
+<tr><td>SSD/NVMe</td><td>高速持久化</td><td>DB、VM、AI</td><td>寿命、成本、写放大</td></tr>
+<tr><td>HDD</td><td>低成本容量</td><td>备份、冷数据、NAS</td><td>随机 I/O 慢</td></tr>
+<tr><td>File System</td><td>文件/目录语义</td><td>操作系统文件</td><td>业务查询弱</td></tr>
+<tr><td>Block</td><td>裸磁盘能力</td><td>数据库、VM</td><td>不懂文件</td></tr>
+<tr><td>File</td><td>共享文件</td><td>NAS、办公共享</td><td>横向扩展复杂</td></tr>
+<tr><td>Object</td><td>海量对象</td><td>图片、视频、Lake</td><td>随机修改差</td></tr>
+<tr><td>MySQL/Postgres</td><td>事务 + 关系</td><td>核心业务</td><td>超大规模水平扩展复杂</td></tr>
+<tr><td>Redis</td><td>热点与原子操作</td><td>缓存、计数、Session</td><td>一致性、内存成本</td></tr>
+<tr><td>MongoDB</td><td>灵活 JSON</td><td>内容、Profile</td><td>复杂关系不自然</td></tr>
+<tr><td>Elasticsearch</td><td>全文检索</td><td>搜索、日志</td><td>不宜做核心账本</td></tr>
+<tr><td>Kafka</td><td>事件流与解耦</td><td>异步、CDC、日志</td><td>重复/顺序/积压复杂</td></tr>
+<tr><td>ClickHouse</td><td>列式分析</td><td>BI、行为分析</td><td>高频单行事务弱</td></tr>
+<tr><td>S3+Parquet</td><td>低成本分析存储</td><td>数据湖、AI</td><td>事务/治理需额外层</td></tr>
+<tr><td>Iceberg</td><td>让文件湖像表</td><td>Lakehouse</td><td>生态和运维复杂</td></tr>
+<tr><td>Vector DB</td><td>语义相似检索</td><td>RAG、推荐</td><td>近似结果、索引成本</td></tr>
+<tr><td>Ceph</td><td>统一分布式存储</td><td>私有云/K8s</td><td>部署运维复杂</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="failures">
+<header class="section-head"><span>10</span><div><h2>故障推演：真正理解系统从“坏掉”开始</h2><p>架构设计不是看正常路径，而是问每个环节坏掉会怎样。</p></div></header>
+<div class="catalog">
+<article><h3>场景 1：write() 后立刻断电</h3><p>如果数据只在 Page Cache，可能丢失。需要明确 fsync / WAL / 硬件掉电保护的耐久性边界。</p></article>
+<article><h3>场景 2：MySQL 已修改内存页但还没刷数据文件</h3><p>Redo 已持久化时，可在重启后重放恢复；这就是 WAL 的价值。</p></article>
+<article><h3>场景 3：Redis 热点 Key 同时失效</h3><p>大量请求穿透到 DB，形成击穿；需要互斥重建、逻辑过期或多级缓存。</p></article>
+<article><h3>场景 4：Kafka 消费成功但 Offset 没提交</h3><p>重启后会再次消费，业务必须支持幂等。</p></article>
+<article><h3>场景 5：Leader 返回成功后、Follower 还没复制就宕机</h3><p>异步复制可能丢最近数据；这就是 RPO 与延迟之间的权衡。</p></article>
+<article><h3>场景 6：网络分区导致两个节点都以为自己是 Leader</h3><p>形成 Split Brain。需要基于多数派与任期的共识协议避免双主同时提交。</p></article>
+</div>
+</section>
+
+<section id="quiz">
+<header class="section-head"><span>11</span><div><h2>自测：真正掌握的标准</h2><p>如果能用自己的话解释下面这些问题，就已经形成比较完整的存储体系。</p></div></header>
+<ol class="quiz">
+<li>为什么 <code>write()</code> 返回成功不代表数据已经永久保存？</li>
+<li>为什么数据库更喜欢先写 WAL/Redo，而不是每次直接刷随机数据页？</li>
+<li>为什么 B+Tree 比普通二叉树更适合作为磁盘索引？</li>
+<li>MVCC 如何让“读”和“写”减少互相阻塞？</li>
+<li>Redis 缓存穿透、击穿、雪崩分别是什么？</li>
+<li>为什么 Redis 分布式锁的 value 必须是唯一 token？</li>
+<li>Kafka 为什么只能保证 Partition 内顺序？</li>
+<li>At-least-once 为什么要求业务幂等？</li>
+<li>Sharding、Replication、Consensus 分别解决什么问题？</li>
+<li>CAP 真正讨论的是哪个场景下的权衡？</li>
+<li>为什么对象存储适合图片和数据湖，却不适合作为传统数据库裸盘？</li>
+<li>为什么现代系统经常同时使用 MySQL + Redis + Kafka + ES + S3 + ClickHouse？</li>
+</ol>
+</section>
+
+<footer>
+  <b>StorageLearn</b>
+  <span>从“数据放哪”出发，理解性能、可靠性、一致性与扩展性的全部权衡。</span>
+</footer>
+</main>
+<script src="./app.js"></script>
+</body>
+</html>

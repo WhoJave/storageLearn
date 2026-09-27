@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>StorageLearn · 完整技术目录</title><link rel="stylesheet" href="./styles.css"/>
+</head>
+<body>
+<a class="back-home" href="./index.html">← 返回总览</a>
+<main class="standalone">
+<section class="hero compact">
+<div class="eyebrow">COMPLETE CATALOG</div>
+<h1>现代存储技术<br><span>完整目录与关系图</span></h1>
+<p class="lead">这一页专门回答最开始的问题：到底有哪些存储介质、设备、协议、文件系统、数据库与数据平台？每一类为什么存在、解决什么问题、什么时候用、有什么不足。</p>
+</section>
+
+<section>
+<header class="section-head"><span>01</span><div><h2>先建立“层”的概念</h2><p>不要把 SSD、NVMe、ext4、MySQL、S3 当成同一层的东西。</p></div></header>
+<div class="cards three">
+<article><h3>物理层</h3><p>真正保存 0/1：SRAM、DRAM、NAND、磁盘、磁带、光学介质。</p></article>
+<article><h3>抽象层</h3><p>把裸硬件变得可管理：FTL、Block Device、文件系统、对象接口。</p></article>
+<article><h3>数据语义层</h3><p>把“字节”变成业务可理解的数据：数据库、缓存、搜索、消息、数据仓库。</p></article>
+</div>
+<div class="principle"><b>理解顺序：</b>先问“数据物理上放哪”，再问“操作系统怎么访问”，最后问“业务如何查询和保证一致性”。</div>
+</section>
+
+<section>
+<header class="section-head"><span>02</span><div><h2>物理介质：从 CPU Cache 到磁带</h2><p>所有存储设计都在速度、容量、成本、耐久性之间做交换。</p></div></header>
+<div class="table-wrap"><table><thead><tr><th>介质</th><th>大致特性</th><th>为什么需要</th><th>典型场景</th><th>局限</th></tr></thead><tbody>
+<tr><td>SRAM</td><td>极快、极贵、易失</td><td>CPU 速度远快于内存</td><td>L1/L2/L3 Cache</td><td>容量非常小</td></tr>
+<tr><td>DRAM</td><td>快、易失</td><td>给程序提供工作区</td><td>系统内存、Buffer Pool、Page Cache</td><td>掉电丢失</td></tr>
+<tr><td>NAND Flash</td><td>快、非易失</td><td>替代大量机械随机 I/O</td><td>SSD、UFS、U盘</td><td>擦写寿命、写放大</td></tr>
+<tr><td>HDD</td><td>慢、便宜、容量大</td><td>低成本海量存储</td><td>NAS、备份、冷数据</td><td>随机访问慢</td></tr>
+<tr><td>Tape</td><td>极便宜、顺序访问</td><td>长期归档</td><td>灾备、合规归档</td><td>访问极慢</td></tr>
+</tbody></table></div>
+<div class="analogy"><b>类比：</b>SRAM 像桌面上的便签，DRAM 像办公桌，SSD 像抽屉，HDD 像仓库，磁带像异地档案馆。</div>
+</section>
+
+<section>
+<header class="section-head"><span>03</span><div><h2>SSD 内部到底发生什么</h2><p>SSD 并不是“一块会随机覆盖的电子硬盘”。</p></div></header>
+<div class="step-list">
+<div class="step"><b>1. 主机写 LBA</b><span>操作系统告诉 SSD：“写逻辑块 1000”。</span></div>
+<div class="step"><b>2. FTL 查映射</b><span>控制器把逻辑地址映射到真实 NAND Page。</span></div>
+<div class="step"><b>3. Out-of-place Write</b><span>NAND 通常不能直接原地覆盖，控制器会写新 Page。</span></div>
+<div class="step"><b>4. 标旧页无效</b><span>旧物理页变成垃圾，等待后续回收。</span></div>
+<div class="step"><b>5. Garbage Collection</b><span>搬运仍有效数据，擦除整个 Block，再释放空间。</span></div>
+</div>
+<div class="cards two">
+<article><h3>Wear Leveling</h3><p>尽量让不同 NAND Block 的擦写次数更均匀，避免某些区域提前老化。</p></article>
+<article><h3>TRIM</h3><p>文件删除后，操作系统通知 SSD 哪些 LBA 已经不再需要，帮助 FTL 更高效回收。</p></article>
+</div>
+<div class="callout warn"><b>为什么 SSD 会掉速？</b> 当 SLC Cache 用尽、可用空块减少、GC 加重、温度升高时，持续写速度可能明显下降。</div>
+</section>
+
+<section>
+<header class="section-head"><span>04</span><div><h2>SATA、SAS、PCIe、NVMe：别再混淆</h2></div></header>
+<div class="question-grid">
+<article><h3>SATA</h3><p>传统存储接口/协议体系，适合 HDD 时代。队列和命令模型相对简单。</p></article>
+<article><h3>SAS</h3><p>企业存储常见，强调可靠性、双端口与企业级特性。</p></article>
+<article><h3>PCIe</h3><p>高速总线，负责设备与 CPU/芯片组之间传输数据。</p></article>
+<article><h3>NVMe</h3><p>专门为低延迟非易失存储设计的协议，支持大量并行队列。</p></article>
+</div>
+<div class="mini-diagram"><b>NAND</b><span>物理介质</span><i>→</i><b>SSD</b><span>设备</span><i>→</i><b>NVMe</b><span>协议</span><i>→</i><b>PCIe</b><span>总线</span></div>
+</section>
+
+<section>
+<header class="section-head"><span>05</span><div><h2>Block / File / Object：三种根本不同的存储模型</h2></div></header>
+<div class="cards three">
+<article><h3>Block</h3><p>像一块远程硬盘，只给你 Block 编号。数据库、VM 最喜欢。</p><p><b>例：</b>EBS、SAN、Ceph RBD。</p><p class="weak">缺点：需要自己放文件系统。</p></article>
+<article><h3>File</h3><p>直接提供文件/目录/权限语义，多个客户端可以共享。</p><p><b>例：</b>NFS、SMB、NAS、EFS。</p><p class="weak">缺点：元数据扩展与一致性更复杂。</p></article>
+<article><h3>Object</h3><p>以 key 获取完整对象，天然适合海量非结构化数据。</p><p><b>例：</b>S3、OSS、COS、R2、MinIO。</p><p class="weak">缺点：不适合像本地文件一样频繁随机修改。</p></article>
+</div>
+<div class="example-box"><b>真实设计：</b>电商商品图片放 S3，对象 key 存 MySQL；商品详情用 MySQL，热门详情放 Redis，全文检索放 Elasticsearch。</div>
+</section>
+
+<section>
+<header class="section-head"><span>06</span><div><h2>文件系统：从“块”变成“文件”</h2></div></header>
+<div class="cards three">
+<article><h3>inode</h3><p>记录文件元数据与数据块位置。目录负责“文件名 → inode”。</p></article>
+<article><h3>Journal</h3><p>先记录即将修改的元数据，再真正修改，崩溃后可以重放。</p></article>
+<article><h3>COW</h3><p>修改时写新块，再更新指针。快照与快速克隆因此变得简单。</p></article>
+</div>
+<div class="table-wrap"><table><thead><tr><th>系统</th><th>常见平台</th><th>特点</th></tr></thead><tbody>
+<tr><td>APFS</td><td>Apple</td><td>COW、Snapshot、Encryption</td></tr>
+<tr><td>NTFS</td><td>Windows</td><td>ACL、Journal、广泛兼容</td></tr>
+<tr><td>ext4</td><td>Linux</td><td>成熟稳定、通用</td></tr>
+<tr><td>XFS</td><td>Linux Server</td><td>大文件、高吞吐</td></tr>
+<tr><td>ZFS</td><td>NAS/Server</td><td>Checksum、COW、Snapshot、Pool</td></tr>
+<tr><td>Btrfs</td><td>Linux</td><td>COW、Snapshot、Checksum</td></tr>
+</tbody></table></div>
+</section>
+
+<section>
+<header class="section-head"><span>07</span><div><h2>数据库与数据软件全家桶</h2><p>不是“哪个最好”，而是“哪个数据问题更适合哪个模型”。</p></div></header>
+<div class="catalog">
+<article><h3>关系型 SQL</h3><p>MySQL / PostgreSQL / Oracle / SQL Server。适合强关系、事务、约束、账务、订单。</p><p class="weak">弱点：大规模横向拆分复杂；全文检索不是长项。</p></article>
+<article><h3>Key-Value</h3><p>Redis / DynamoDB / RocksDB / LevelDB / etcd。按 key 极快访问。</p><p class="weak">弱点：复杂关系查询弱。</p></article>
+<article><h3>Document</h3><p>MongoDB / CouchDB / Firestore。JSON 结构自然，Schema 灵活。</p><p class="weak">弱点：强关系、多表复杂事务不如 SQL 自然。</p></article>
+<article><h3>Wide Column</h3><p>Cassandra / HBase / ScyllaDB / Bigtable。大规模水平扩展与写入吞吐。</p><p class="weak">弱点：查询模式通常需要提前设计。</p></article>
+<article><h3>Graph</h3><p>Neo4j / Neptune。适合多跳关系：社交、推荐、反欺诈、知识图谱。</p></article>
+<article><h3>Time Series</h3><p>InfluxDB / TimescaleDB / Prometheus / VictoriaMetrics。专为 timestamp 数据优化。</p></article>
+<article><h3>Search</h3><p>Elasticsearch / OpenSearch / Solr。倒排索引、全文检索、相关性排序。</p></article>
+<article><h3>Cache</h3><p>Redis / Memcached。让热点数据靠近 CPU，减少 DB 压力。</p></article>
+<article><h3>Message/Event</h3><p>Kafka / Pulsar / RabbitMQ / RocketMQ。异步解耦、事件流、日志管道。</p></article>
+<article><h3>OLAP</h3><p>ClickHouse / BigQuery / Snowflake / Redshift / Doris / StarRocks。列式扫描、历史聚合。</p></article>
+<article><h3>Data Lake / Lakehouse</h3><p>S3/HDFS + Parquet/ORC + Iceberg/Delta/Hudi。保存海量原始数据并提供表能力。</p></article>
+<article><h3>Vector DB</h3><p>Milvus / Qdrant / Weaviate / Pinecone / pgvector。Embedding 相似检索、RAG、推荐。</p></article>
+</div>
+</section>
+
+<section>
+<header class="section-head"><span>08</span><div><h2>数据湖为什么不是“大号文件夹”</h2></div></header>
+<div class="cards three">
+<article><h3>Parquet</h3><p>列式文件格式。查询只读取需要的列，并利用编码与压缩降低 I/O。</p></article>
+<article><h3>Iceberg</h3><p>在对象存储文件之上增加 Snapshot、Schema Evolution、Partition Evolution、事务式元数据。</p></article>
+<article><h3>Lakehouse</h3><p>目标是把数据湖的低成本/开放格式与数据仓库的表管理/一致性结合。</p></article>
+</div>
+<div class="example-box"><b>例：</b>10TB 日志存 S3。BI 查询只需要 user_id、event、time 三列，Parquet 可避免读整行全部字段；Iceberg 再让这些文件像“表”一样有版本与元数据。</div>
+</section>
+
+<section>
+<header class="section-head"><span>09</span><div><h2>云原生与分布式存储</h2></div></header>
+<div class="cards three">
+<article><h3>Ceph</h3><p>同一底层集群可向上提供 RBD(Block)、CephFS(File)、RGW(Object)。</p></article>
+<article><h3>HDFS</h3><p>把超大文件拆为 Block 分散存储并复制，适合批处理时代的大数据。</p></article>
+<article><h3>Kubernetes</h3><p>Pod → PVC → PV → CSI → EBS/Ceph/NFS。计算生命周期和存储生命周期解耦。</p></article>
+</div>
+<div class="callout"><b>RAID ≠ Backup。</b> RAID 主要防磁盘损坏，无法防误删、勒索软件、逻辑错误同步扩散。备份需要独立故障域。</div>
+</section>
+
+<section>
+<header class="section-head"><span>10</span><div><h2>五个问题，理解任何存储技术</h2></div></header>
+<ol class="quiz">
+<li>数据真正存在哪里：RAM、SSD、Object Storage，还是远程副本？</li>
+<li>什么时候算写成功：进内存、写 WAL、fsync，还是多数副本确认？</li>
+<li>机器挂了怎么恢复：Journal、Redo、Replica、Snapshot、Replay？</li>
+<li>并发冲突怎么处理：Lock、MVCC、CAS、Partition、Single Leader？</li>
+<li>单机撑不住后怎么扩展：Cache、Replication、Sharding、Partition、Consensus？</li>
+</ol>
+</section>
+<footer><b>StorageLearn</b><span>完整技术目录 · 从介质到数据平台</span></footer>
+</main>
+</body></html>

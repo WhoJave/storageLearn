@@ -13,7 +13,7 @@
 <aside class="sidebar" id="sidebar">
   <div class="brand"><div class="logo">SL</div><div><b>StorageLearn</b><small>Storage Systems Deep Dive</small></div></div>
   <nav>
-    <a href="#hero">总览</a>
+    <a href="#hero">总览</a><a href="#study-hub">深度学习入口</a>
     <a href="#landscape">01 · 存储世界全景</a>
     <a href="#media">02 · 物理介质</a>
     <a href="#device">03 · 设备与协议</a>
@@ -40,6 +40,17 @@
   <h1>从一个比特到<br><span>分布式一致性</span></h1>
   <p class="lead">完整理解现代存储：物理介质 → SSD/NVMe → Block/File/Object → 文件系统 → 数据库/缓存/搜索/消息 → 数据仓库/数据湖 → 分布式复制与一致性。目标不是记产品，而是建立一套可以解释“为什么系统要这样设计”的统一模型。</p>
   <div class="stats"><div><b>7</b><span>基础层级</span></div><div><b>18+</b><span>软件类别</span></div><div><b>5</b><span>深度主线</span></div><div><b>1</b><span>统一心智模型</span></div></div>
+</section>
+
+
+<section id="study-hub">
+<header class="section-head"><span>00</span><div><h2>深度学习入口</h2><p>首页负责建立全景；下面三个章节把知识继续展开到机制、场景与故障层面。</p></div></header>
+<div class="cards three">
+<article><h3>完整技术目录</h3><p>从 SRAM/DRAM/NAND、SSD/NVMe、Block/File/Object，到数据库、搜索、OLAP、Lakehouse、Vector DB。</p><p><a class="chapter-link" href="./catalog.html">进入完整目录 →</a></p></article>
+<article><h3>五条主线深挖</h3><p>write→NAND、MySQL、Redis、Kafka、Raft/CAP，把性能、事务、恢复、并发、一致性真正串起来。</p><p><a class="chapter-link" href="./deep-dive.html">进入五条主线 →</a></p></article>
+<article><h3>真实架构与故障案例</h3><p>消费金融、电商、日志平台、RAG，以及断电、锁过期、重复消费、主库故障等推演。</p><p><a class="chapter-link" href="./scenarios.html">进入案例页 →</a></p></article>
+</div>
+<div class="principle"><b>推荐学习路径：</b>先看首页全景 → 完整技术目录 → 五条主线深挖 → 真实架构/故障案例 → 回到自测题。</div>
 </section>
 
 <section id="landscape">

@@ -1,74 +1,70 @@
 # StorageLearn
 
-一个从 **物理介质 → SSD/NVMe → 文件系统 → Block/File/Object → 数据库/缓存/搜索/消息 → 数据仓库/数据湖 → 分布式存储与一致性** 的完整学习站点。
+一个面向开发者、架构学习者的现代存储系统深度学习站点。
 
-## 已覆盖
+这不是“产品列表”，而是围绕 **数据在哪里、什么时候算写成功、如何恢复、如何处理并发、如何扩展** 建立统一心智模型。
 
-### 1. 存储介质与底层设备
-- SRAM / DRAM
-- NAND / NOR Flash
-- HDD / Tape / Optical
-- SSD、FTL、GC、Wear Leveling、TRIM
-- SATA / NVMe / PCIe
+## 页面结构
 
-### 2. 三大存储模型
-- Block Storage
-- File Storage
-- Object Storage
+- `index.html`：完整全景首页，7 层体系、基础技术、五条主线摘要、端到端链路、选型矩阵、自测
+- `catalog.html`：完整技术目录，重点回答“市场上有哪些存储介质与存储软件，每类解决什么问题”
+- `deep-dive.html`：五条主线深挖
+  - SSD / NVMe / 文件系统 / Page Cache
+  - MySQL：B+Tree、Buffer Pool、Redo、Undo、MVCC、Lock、Binlog
+  - Redis：数据结构、Cache Aside、穿透/击穿/雪崩、锁、RDB/AOF、Cluster
+  - Kafka：Partition、Offset、Consumer Group、At-least-once、复制
+  - 分布式：Sharding、Replication、Quorum、Raft、CAP
+- `scenarios.html`：真实架构与故障推演
+  - 消费金融注册 / 授信 / 借款 / 还款
+  - 电商多存储组合
+  - 日志平台
+  - AI / RAG
+  - 断电、锁过期、重复消费、主库故障
 
-### 3. 文件系统
-- APFS / NTFS / ext4 / XFS / ZFS / Btrfs
-- inode
-- Journal
-- Copy-on-Write
-- Page Cache / Dirty Page / fsync
+## 已覆盖的技术范围
 
-### 4. 数据软件体系
-- SQL：MySQL / PostgreSQL
-- Key-Value：Redis / RocksDB / DynamoDB
-- Document：MongoDB
-- Wide Column：Cassandra / HBase / Bigtable
-- Graph：Neo4j
-- Time Series：InfluxDB / Prometheus
-- Search：Elasticsearch / OpenSearch
-- Messaging：Kafka / Pulsar / RabbitMQ / RocketMQ
-- OLAP：ClickHouse / Snowflake / BigQuery
-- Data Lake / Lakehouse：S3 / Parquet / Iceberg / Delta / Hudi
-- Vector DB：Milvus / Qdrant / Weaviate / pgvector
+### 物理与设备
+SRAM、DRAM、NAND、NOR、HDD、Tape、Optical、SSD、FTL、GC、Wear Leveling、TRIM、SATA、SAS、NVMe、PCIe。
 
-### 5. 五条深度主线
-1. SSD / NVMe / 文件系统 / Page Cache
-2. MySQL：B+Tree、Buffer Pool、Redo、Undo、MVCC、Lock、Binlog
-3. Redis：缓存、穿透/击穿/雪崩、分布式锁、RDB/AOF、Cluster
-4. Kafka：Partition、Offset、Consumer Group、消息语义、Replication
-5. 分布式存储：Sharding、Replication、Quorum、Raft、CAP
+### 存储模型
+Block Storage、File Storage、Object Storage。
 
-### 6. 架构串联
-- 消费金融额度申请端到端数据链路
-- 故障推演
-- 技术选型矩阵
-- 自测题
+### 文件系统
+APFS、NTFS、ext4、XFS、ZFS、Btrfs、inode、Journal、Copy-on-Write、Page Cache、Dirty Page、fsync。
 
-## 本地运行
+### 数据软件
+MySQL、PostgreSQL、Redis、MongoDB、Cassandra、HBase、Neo4j、InfluxDB、Prometheus、Elasticsearch、OpenSearch、Kafka、Pulsar、RabbitMQ、RocketMQ、ClickHouse、Snowflake、BigQuery、Redshift、Doris、StarRocks。
 
-零依赖静态站点：
+### 数据湖 / AI
+S3、HDFS、Parquet、ORC、Iceberg、Delta Lake、Hudi、Milvus、Qdrant、Weaviate、Pinecone、pgvector。
 
-```bash
-python3 -m http.server 8080
-```
+### 分布式与云原生
+Ceph、Replication、Erasure Coding、Sharding、Consistent Hashing、Quorum、Raft、CAP、Kubernetes PVC/PV/CSI、Backup、3-2-1、Git Content-Addressed Storage。
 
-浏览器访问：
+## 推荐学习方式
 
-```
-http://localhost:8080
-```
-
-## 学习方法
-
-始终用 5 个问题理解任何存储技术：
+每遇到一个存储技术，都回答 5 个问题：
 
 1. 数据真正存在哪里？
 2. 什么时候算写成功？
 3. 机器挂了怎么恢复？
 4. 并发冲突怎么解决？
 5. 单机撑不住后怎么扩展？
+
+然后继续追问：
+
+- 它为了弥补下一层的什么不足而存在？
+- 它牺牲了什么换来了什么？
+- 如果不用它，系统会在哪个真实场景中出问题？
+
+## 本地运行
+
+```bash
+python3 -m http.server 8080
+```
+
+访问：
+
+```
+http://localhost:8080
+```

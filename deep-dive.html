@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>StorageLearn · 五条主线深挖</title><link rel="stylesheet" href="./styles.css"/>
+</head>
+<body>
+<a class="back-home" href="./index.html">← 返回总览</a>
+<main class="standalone">
+<section class="hero compact">
+<div class="eyebrow">FIVE DEEP DIVES</div>
+<h1>五条主线<br><span>把底层机制真正串起来</span></h1>
+<p class="lead">这一页不再停留在“是什么”，而是继续追问：为什么这样设计？一次请求到底经过哪些层？崩溃时如何恢复？并发时谁和谁冲突？为什么性能优化总伴随一致性代价？</p>
+</section>
+
+<section>
+<header class="section-head"><span>A</span><div><h2>主线 A：write() 到 NAND 的完整路径</h2><p>理解“写成功”和“真正持久化”不是一回事。</p></div></header>
+<div class="step-list">
+<div class="step"><b>1. 应用调用 write()</b><span>用户态进入内核态，数据通常先进入操作系统的 Page Cache。</span></div>
+<div class="step"><b>2. Page 变 Dirty</b><span>内存里的文件页被修改，但此时 SSD 可能完全没有变化。</span></div>
+<div class="step"><b>3. 文件系统分配 Block</b><span>ext4/XFS 根据 inode、Extent 等元数据决定逻辑文件位置映射到哪些块。</span></div>
+<div class="step"><b>4. Block I/O 下发</b><span>内核调度 I/O，经 NVMe Driver 提交到控制器队列。</span></div>
+<div class="step"><b>5. SSD FTL 转换</b><span>逻辑 LBA 被映射到物理 NAND Page。</span></div>
+<div class="step"><b>6. NAND Program</b><span>最终电荷状态改变，数据真正进入非易失介质。</span></div>
+</div>
+<div class="callout warn"><b>关键陷阱：</b><code>write()</code> 返回成功，通常只代表数据已被内核接收；如果机器立刻断电，尚未刷出的 Dirty Page 仍可能丢失。</div>
+<div class="cards two">
+<article><h3>fsync 到底做什么</h3><p><code>fsync(fd)</code> 要求内核推进该文件的脏数据和必要元数据到稳定存储路径。它提高耐久性，但会增加延迟。</p><p><b>所以：</b>每条业务写都立即 fsync 很安全，但吞吐低；批量 fsync 吞吐高，但可能扩大故障损失窗口。</p></article>
+<article><h3>为什么数据库有 WAL</h3><p>随机修改数据页很慢，所以数据库先顺序追加一小段日志，再把真正的数据页延后刷盘。</p><p><b>思路：</b>“先记录我准备怎么改”比“马上把所有散落的数据页都改完”更高效。</p></article>
+</div>
+<div class="example-box"><b>举例：</b>转账记录从余额 1000 改成 900。数据库不必立刻找到并覆盖磁盘中的整页，而是先顺序写一条 Redo：“页 X 的字段 Y 从 1000 改成 900”。崩溃后可以重放。</div>
+</section>
+
+<section>
+<header class="section-head"><span>B</span><div><h2>主线 B：MySQL / InnoDB 一次事务发生了什么</h2></div></header>
+<div class="mini-diagram"><b>SQL</b><i>→</i><b>Parser</b><i>→</i><b>Optimizer</b><i>→</i><b>B+Tree</b><i>→</i><b>Buffer Pool</b><i>→</i><b>Redo / Undo</b></div>
+<div class="cards two">
+<article><h3>B+Tree 为什么不是红黑树</h3><p>磁盘最怕随机 I/O。B+Tree 每个节点能放很多 key，一个节点对应一个 Page，树高很低。</p><p>例如根页有 1000 个分支，下一层每个又有 1000 个分支，三四层就能覆盖非常大的数据量。</p></article>
+<article><h3>聚簇索引与回表</h3><p>InnoDB 主键索引叶子通常保存完整行；二级索引叶子保存二级键 + 主键。</p><p>因此 <code>where email=?</code> 先在 email 索引找到主键，再回主键 B+Tree 取整行，这就是“回表”。</p></article>
+</div>
+<div class="cards three">
+<article><h3>Redo Log</h3><p>物理/页级恢复日志，服务于崩溃恢复。</p></article>
+<article><h3>Undo Log</h3><p>保存旧版本，用于回滚与 MVCC。</p></article>
+<article><h3>Binlog</h3><p>Server 层逻辑变更日志，用于复制、CDC、PITR。</p></article>
+</div>
+<div class="step-list">
+<div class="step"><b>UPDATE 执行</b><span>定位目标记录，必要时加锁。</span></div>
+<div class="step"><b>修改 Buffer Pool</b><span>先改内存中的页。</span></div>
+<div class="step"><b>生成 Undo</b><span>保存旧值，保证回滚与历史版本读取。</span></div>
+<div class="step"><b>写 Redo</b><span>保证内存页还没落盘也能恢复。</span></div>
+<div class="step"><b>提交协调</b><span>Redo 与 Binlog 需要保持一致，MySQL 使用两阶段提交式协调。</span></div>
+</div>
+<div class="cards two">
+<article><h3>MVCC 通俗理解</h3><p>不是所有读都去抢锁。读事务拿到一个“时间视角”，根据 Read View 和 Undo 版本链找到自己应该看到的版本。</p><p>所以写事务可以继续产生新版本，旧读事务仍能看到旧版本。</p></article>
+<article><h3>锁仍然重要</h3><p>MVCC 主要缓解读写冲突，但写写冲突仍需要锁。范围锁场景还会涉及 Gap Lock / Next-Key Lock。</p></article>
+</div>
+<div class="example-box"><b>消费金融例子：</b>用户额度从 10,000 调整为 8,000。审批事务修改额度时，查询报表的旧事务仍可通过 MVCC 看到旧版本，而另一个同时修改额度的事务需要等待/冲突处理。</div>
+</section>
+
+<section>
+<header class="section-head"><span>C</span><div><h2>主线 C：Redis 不只是“内存快”</h2></div></header>
+<div class="cards three">
+<article><h3>为什么快</h3><p>数据在内存；数据结构针对常见操作优化；核心命令路径避免复杂线程竞争；网络与协议开销低。</p></article>
+<article><h3>为什么不能全放 Redis</h3><p>内存贵；持久化语义与关系查询有限；强一致核心账本需要更稳健的事务与约束。</p></article>
+<article><h3>真正难点</h3><p>缓存一致性、热点、过期、故障切换、分布式锁边界。</p></article>
+</div>
+<div class="table-wrap"><table><thead><tr><th>结构</th><th>典型用途</th><th>例子</th></tr></thead><tbody>
+<tr><td>String</td><td>缓存、验证码、计数器</td><td>SMS OTP、Session Token</td></tr>
+<tr><td>Hash</td><td>对象字段</td><td>用户 Profile</td></tr>
+<tr><td>Set</td><td>去重、集合关系</td><td>黑名单、标签</td></tr>
+<tr><td>Sorted Set</td><td>有序排名</td><td>排行榜、延时任务评分</td></tr>
+<tr><td>Bitmap</td><td>布尔状态压缩</td><td>签到、在线状态</td></tr>
+<tr><td>HyperLogLog</td><td>近似基数统计</td><td>UV</td></tr>
+<tr><td>Stream</td><td>流式消息</td><td>轻量事件处理</td></tr>
+</tbody></table></div>
+<div class="cards three">
+<article><h3>缓存穿透</h3><p>查不存在 key → Redis miss → 每次打 DB。</p><p><b>解法：</b>缓存空值、Bloom Filter。</p></article>
+<article><h3>缓存击穿</h3><p>单个超级热点 key 过期 → 大量请求同时回源。</p><p><b>解法：</b>互斥重建、逻辑过期。</p></article>
+<article><h3>缓存雪崩</h3><p>大量 key 同时过期/集群故障 → DB 瞬间过载。</p><p><b>解法：</b>随机 TTL、多级缓存、限流熔断。</p></article>
+</div>
+<div class="example-box"><b>登录验证码：</b><code>SET otp:138xxxx 927314 EX 300</code>。Redis 很适合 5 分钟有效的验证码，但真正“手机号是否已注册、账户是否冻结”仍应以数据库为准。</div>
+<div class="callout warn"><b>分布式锁：</b><code>SET lock:key uniqueToken NX PX 30000</code> 只是起点。释放必须“比较 token + DEL”原子执行；业务若执行超过 TTL，锁也可能失效。核心金融状态还需要唯一约束、幂等键和状态机兜底。</div>
+</section>
+
+<section>
+<header class="section-head"><span>D</span><div><h2>主线 D：Kafka 为什么像“可重复播放的日志”</h2></div></header>
+<div class="cards two">
+<article><h3>Partition</h3><p>Topic 被拆成多个追加日志。每个 Partition 内消息按 offset 有序，多个 Partition 之间没有全局顺序。</p></article>
+<article><h3>Key</h3><p>同一业务 key 通常映射到同一 Partition，因此可以维护“同一个订单/用户”的事件顺序。</p></article>
+</div>
+<div class="example-box"><b>例：</b>订单 1001 的 Created → Paid → Shipped 都用 key=1001，可落到同一 Partition；订单 1002 可以同时在另一个 Partition 并行处理。</div>
+<div class="cards three">
+<article><h3>At-most-once</h3><p>先提交 offset，再处理。崩溃可能导致消息丢失。</p></article>
+<article><h3>At-least-once</h3><p>先处理，再提交 offset。崩溃可能重复，因此消费者必须幂等。</p></article>
+<article><h3>Exactly-once</h3><p>Kafka 内部可借助幂等生产者与事务降低重复，但写外部 DB/调用支付接口仍需要业务幂等。</p></article>
+</div>
+<div class="cards two">
+<article><h3>为什么 Kafka 吞吐高</h3><p>Append-only 顺序写、Batch、Compression、Page Cache，以及尽量减少用户态/内核态数据拷贝。</p></article>
+<article><h3>Consumer Group</h3><p>同一组内，一个 Partition 同时只会被一个 Consumer 消费，因此 Partition 数限制并发度。</p></article>
+</div>
+</section>
+
+<section>
+<header class="section-head"><span>E</span><div><h2>主线 E：分布式系统三问</h2><p>数据放哪？放几份？谁说了算？</p></div></header>
+<div class="cards three">
+<article><h3>Sharding</h3><p>解决单机容量和吞吐上限。</p><p><b>问题：</b>节点增加时如何迁移？跨分片查询怎么办？</p></article>
+<article><h3>Replication</h3><p>解决节点损坏和可用性。</p><p><b>问题：</b>同步复制慢，异步复制可能丢最近数据。</p></article>
+<article><h3>Consensus</h3><p>解决多个节点对“哪份状态有效”达成一致。</p><p><b>问题：</b>超时、网络分区和故障选主。</p></article>
+</div>
+<div class="step-list">
+<div class="step"><b>Raft：Follower</b><span>正常跟随 Leader，持续接收心跳和日志。</span></div>
+<div class="step"><b>超时</b><span>长时间没收到心跳，Follower 进入 Candidate。</span></div>
+<div class="step"><b>RequestVote</b><span>Candidate 请求其他节点投票。</span></div>
+<div class="step"><b>多数票</b><span>获得多数后成为新 Leader。</span></div>
+<div class="step"><b>AppendEntries</b><span>新 Leader 继续复制日志，达到多数后提交。</span></div>
+</div>
+<div class="callout"><b>CAP 的正确理解：</b>不是日常状态下简单“任选两个”。真正讨论的是发生网络分区 P 时，系统更偏向拒绝部分请求来维持一致性 C，还是继续提供服务但允许暂时不一致 A。</div>
+<div class="example-box"><b>例：</b>3 个节点中 A 与 B 能互通，C 被网络隔离。多数派 A+B 可以继续选出 Leader；C 即使还活着，也不能单独对外确认新的强一致写入。</div>
+</section>
+
+<section>
+<header class="section-head"><span>F</span><div><h2>把五条主线串成一次真实写入</h2></div></header>
+<div class="journey">
+<div><b>APP</b><span>提交借款申请</span></div>
+<div><b>Redis</b><span>检查幂等 key，避免重复提交</span></div>
+<div><b>MySQL</b><span>事务写申请表与状态</span></div>
+<div><b>Redo</b><span>先顺序记录可恢复日志</span></div>
+<div><b>fsync</b><span>将关键日志推进稳定存储</span></div>
+<div><b>NVMe / SSD</b><span>Block I/O → FTL → NAND</span></div>
+<div><b>Binlog</b><span>复制、CDC、PITR</span></div>
+<div><b>Kafka</b><span>ApplicationCreated 事件</span></div>
+<div><b>Risk Engine</b><span>异步风控消费</span></div>
+<div><b>ClickHouse/Lake</b><span>后续分析与模型训练</span></div>
+</div>
+</section>
+
+<footer><b>StorageLearn</b><span>五条主线深挖 · 性能、恢复、并发与一致性</span></footer>
+</main></body></html>
